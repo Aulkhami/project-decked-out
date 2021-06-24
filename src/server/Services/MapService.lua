@@ -14,8 +14,8 @@ function MapService:LoadMap(map)
     local mapDatabase = {
         -- Sands of Beginnings
         ["SoBL01"] = {
-            map = DungeonReplicated.A1SoB.SoBL01;
-            mapDir = Dungeon.A1SoB.SoBL01
+            map = DungeonReplicated.A01SoB.L01;
+            mapDir = Dungeon.A01SoB.L01
         };
     }
 
@@ -34,7 +34,8 @@ function MapService:LoadMap(map)
     
     -- Adding newMap to LoadedMap
     self.LoadedMap[mapID] = newMap
-    print(self.LoadedMap)
+    
+    -- Loading the Monsters
 end
 
 
