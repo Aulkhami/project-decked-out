@@ -1,5 +1,4 @@
 local Knit = require(game:GetService("ReplicatedStorage").Knit)
-local classes = require(Knit.MonsterClasses)
 
 local MonsterService = Knit.CreateService {
     Name = "MonsterService";
@@ -11,13 +10,13 @@ function MonsterService:LoadMonsters(monsterFolder)
     self.LoadedMonsters[monsterFolder] = {}
 
     -- Loading the Scripts to the Monsters
-    local monsterClasses = {
-        ["Base"] = classes.BaseClass
+    local monsterHeirarchy = {
+        ["Base"] = script.BaseClass
     }
 
     for i,v in pairs(monsterFolder) do
         local class = v:GetAttribute()
-        local monster = monsterClasses[class].new(v)
+        local monster = monsterHeirarchy[class].new(v)
 
         self.LoadedMonsters[monsterFolder][i] = monster
     end
@@ -25,7 +24,9 @@ end
 
 
 function MonsterService:KnitStart()
-    
+    local class = require(script.BaseClass.HearingClass)
+    local newClass = class.new(workspace.Mummy)
+    print(newClass)
 end
 
 
