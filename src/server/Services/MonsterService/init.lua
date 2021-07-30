@@ -1,5 +1,6 @@
 local Knit = require(game:GetService("ReplicatedStorage").Knit)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Asset = ReplicatedStorage.Asset
 
 local MonsterService = Knit.CreateService {
     Name = "MonsterService";
@@ -7,6 +8,7 @@ local MonsterService = Knit.CreateService {
     LoadedMonsters = {};
     LatestNumber = 0;
 }
+
 
 function MonsterService:LoadMonster(monster)
     -- Loading the Script to the Specified Monster
@@ -31,12 +33,38 @@ function MonsterService:LoadMonsters(monsterFolder)
 end
 
 function MonsterService.GetHitBox(hitBox)
-    local Model = ReplicatedStorage.Model
     local hitBoxes = {
-        ["Default"] = Model.HitBox.Default;
+        ["Default"] = Asset.HitBox.Default;
     }
 
-    return hitBoxes[hitBox]
+    if type(hitBox) == "table" then
+        local hitBoxTable
+        for _, v in pairs(hitBox) do
+            table.insert(hitBoxTable, hitBoxes[v])
+        end
+
+        return hitBoxTable
+    else
+        return hitBoxes[hitBox]
+    end
+end
+
+function MonsterService.FindAnimationsForClass(classAnimation)
+    local animations = {
+        ["Default"] = {};
+        ["Base"] = {"DefaultHeavyAttack"};
+    }
+
+    if classAnimation then
+        if animations[classAnimation] then
+            return animations[classAnimation]
+        else
+            warn("Can't Find Animations for", classAnimation)
+            return animations["Default"]
+        end
+    else
+        return animations["Default"]
+    end
 end
 
 function MonsterService.GetClass(class)
@@ -66,14 +94,17 @@ function MonsterService.GetClass(class)
         };
     }
 
-    return classes[class]
+    if classes[class] then
+        return classes[class]
+    else
+        warn(class, "is not a valid Class")
+    end
 end
 
 function MonsterService:KnitStart()
     wait(11)
     self:LoadMonster(workspace.Dummy)
     print(self.LoadedMonsters[1], getmetatable(self.LoadedMonsters[1]))
-    self.LoadedMonsters[1]:StartMovement(workspace.Target.Position)
 end
 
 

@@ -4,6 +4,7 @@ local PathfindingService = game:GetService("PathfindingService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local MonsterService = Knit.GetService("MonsterService")
+local AnimationService = Knit.GetService("AnimationService")
 
 local BaseClass = {}
 BaseClass.__index = BaseClass
@@ -18,11 +19,13 @@ function BaseClass.new(monster)
         monsterCharacter = monster;
         root = monster.HumanoidRootPart;
         humanoid = monster.Humanoid;
+        loadedAnimations = {};
     -- Variables
         raiders = workspace.Dungeon.Raiders;
         target = nil;
         targetDistance = nil;
         targetCharacter = nil;
+        aggroDebounce = true;
         path = nil;
         pathObject = nil;
         currentWaypointIndex = 0;
@@ -37,6 +40,14 @@ function BaseClass.new(monster)
         self.attributes = monster:GetAttributes()
     end
 
+    -- Loading Animations
+    if self.attributes.animationClass then
+        self.loadedAnimations = AnimationService:LoadAnimations(self.humanoid, MonsterService.FindAnimationsForClass(self.attributes.animationClass))
+    else
+        self.loadedAnimations = AnimationService:LoadAnimations(self.humanoid, MonsterService.FindAnimationsForClass(self.attributes.Class))
+    end
+
+
     -- Events
     self.IdleEvent = Signal.new()
     self.MoveToFinished = Signal.new()
@@ -49,6 +60,8 @@ function BaseClass.new(monster)
     end)) -- Makes the Monster wander when Idle
     self._maid:GiveTask(RunService.Heartbeat:Connect(function() self:LogicLoop() -- Runs the LogicLoop for each Heartbeat
     end))
+    -- Initiation
+    self:Idle()
 
     return self
 end
@@ -157,40 +170,60 @@ end
 -- Monster Actions
 
 function BaseClass:Attack()
+    print("Attacking")
+    self.humanoid:MoveTo(self.root.Position)
     -- Face the Monster towards the Target
     local rotation = CFrame.lookAt(self.root.Position, self.target.Position)
-    local tweenInfo = TweenInfo.new(1, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+    local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
     local goal = {}
     goal.CFrame = rotation
     self.root.Position = self.root.Position
     local tween = TweenService:Create(self.root, tweenInfo, goal)
     tween:Play()
-    tween.Completed:Wait()
+
     -- Attacking the Target
     local debounce = true
     local face = self.root.CFrame.LookVector
-    local thickness = 0
-    if self.attributes.Thickness then thickness = self.attributes.Thickness
+    local depth = 0
+    if self.attributes.Depth then depth = self.attributes.Depth
     end
+
     -- HitBox
-    local hitBoxSpawn = self.root.CFrame + ((face * (self.attributes.AttackRange / 2)) + (face * (thickness / 2)))
-    local hitBox = MonsterService.GetHitBox(self.attributes.HitBox):Clone()
-    hitBox.Parent = workspace
-    hitBox.CFrame = hitBoxSpawn
+    local hitBoxSpawn = self.root.CFrame + ((face * (self.attributes.AttackRange / 2)) + (face * (depth / 2)))
+    local hitBox
 
-    hitBox.Touched:Connect(function(hit)
-        if debounce and hit.Parent == self.targetCharacter then
-            debounce = false
-            self.targetCharacter.Humanoid:TakeDamage(self.attributes.Damage)
+    -- Animation
+    local attackAnimation = self.loadedAnimations["HeavyAttack"]
+    attackAnimation:Play()
+    local finishedAttacking = Signal.new()
+    local finishedAttackingCleanup = self._maid:GiveTask(finishedAttacking)
+    local attackAnimationEvent = self._maid:GiveTask(attackAnimation:GetMarkerReachedSignal("Contact"):Connect(function(condition)
+        if condition == "Start" then
+            hitBox = MonsterService.GetHitBox(self.attributes.HitBox):Clone()
+            hitBox.Parent = workspace
+            hitBox.CFrame = hitBoxSpawn
+
+            hitBox.Touched:Connect(function(hit)
+                if debounce and hit.Parent == self.targetCharacter then
+                    debounce = false
+                    self.targetCharacter.Humanoid:TakeDamage(self.attributes.Damage)
+                end
+            end)
+        elseif condition == "End" then
+            hitBox:Destroy()
+            finishedAttacking:Fire()
         end
-    end)
+    end))
 
-    wait(1)
-    hitBox:Destroy()
+    finishedAttacking:Wait()
+    attackAnimation.Stopped:Wait()
+    self._maid[finishedAttackingCleanup] = nil
+    self._maid[attackAnimationEvent] = nil
 end
 
 function BaseClass:Wander()
     if self:EventChange("Wander") then
+        print("Wandering")
         if self.attributes.WanderSpeed then -- Changes the Monster's Humanoid WalkSpeed to the Monster's WanderSpeed if Monster has WanderSpeed
             self:ChangeSpeed(self.attributes.WanderSpeed)
         end
@@ -205,18 +238,20 @@ end
 
 function BaseClass:Aggro() -- Aggroes the Monster's Target. Aggro is the highest priority Event, which is why it uses a while loop instead of an event loop.
     if self:EventChange("Aggro") then
+        self.aggroDebounce = false
         local oldTarget = self.targetCharacter
         self:ChangeSpeed("AggroSpeed")
         while self.targetDistance <= self.attributes.AggroRange do
             RunService.Heartbeat:Wait()
-            print(self.target)
-            if not self.target then break
+            if not self.target or oldTarget.Name ~= self.targetCharacter.Name then break
             end
             self.humanoid:MoveTo(self.target.Position)
-            if self.targetDistance <= self.attributes.AttackRange then self:Attack()
+            if self.targetDistance <= self.attributes.AttackRange then print("Attacking But Not Yet")
+                self:Attack()
             end
         end
         self:EventChange("Nothing")
+        self.aggroDebounce = true
     end
 end
 
@@ -244,7 +279,7 @@ end
 
 function BaseClass:LogicLoop()
     self.target, self.targetDistance, self.targetCharacter = self:TargetPriority()
-    if self.targetDistance <= self.attributes.AggroRange and self.currentEvent ~= "Aggro"  then
+    if self.targetDistance <= self.attributes.AggroRange and self.currentEvent ~= "Aggro" and self.aggroDebounce then
         if not self.currentEvent == "Nothing" then
             self:AbortMovement()
         end
@@ -253,7 +288,7 @@ function BaseClass:LogicLoop()
 end
 
 function BaseClass:Idle()
-    RunService.Heartbeat:Wait()
+    print("Idling")
     if self.attributes.IdleTime then wait(self.attributes.IdleTime)
     else wait(1)
     end
