@@ -1,0 +1,21 @@
+= Base Lighting
+
+- Appearance
+Ambient: 138, 138, 138
+OutdoorAmbient: 128, 128, 128
+Brightness: 2
+ColorShift_Bottom: 0, 0, 0
+ColorShift_Top: 0, 0, 0
+EnvironmentDiffuseScale: 0
+EnvironmentSpecularScale: 0
+GlobalShadows: true
+ShadowSoftness: 0.2
+Technology: ShadowMap
+
+- Data 
+ClockTime: 14
+GeographicLatitude: 41.733
+TimeOfDay: 14:00:00 (will probably be cycling in lobby)
+
+- Exposure
+ExposureCompensation: 0
