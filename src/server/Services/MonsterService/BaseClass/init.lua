@@ -117,10 +117,11 @@ function BaseClass:MoveTo(reached) -- Move to current waypoint in the path
         end
         self.humanoid:MoveTo(waypoint.Position)
         -- Firing another :MoveTo()
-        -- local distance = math.abs((self.root.Position - waypoint.Position).Magnitude)
-        -- print(distance / self.humanoid.WalkSpeed)
+        local distance = math.abs((self.root.Position - waypoint.Position).Magnitude)
+        print(distance)
+        --[[ print(distance / self.humanoid.WalkSpeed)
         local finished = self.humanoid.MoveToFinished:Wait()
-        self.MoveToFinished:Fire(finished)
+        self.MoveToFinished:Fire(finished)]]
     else
         self:AbortMovement()
     end
@@ -139,7 +140,7 @@ function BaseClass:StartMovement(target) -- Start Pathfinded Movement to specifi
     -- Starting Movement
     if self.path then
         -- Events
-        self._janitor:Add(self.MoveToFinished:Connect(function(reached) self:MoveTo(reached)
+        self._janitor:Add(self.humanoid.MoveToFinished:Connect(function(reached) self:MoveTo(reached)
         end), nil, "MoveCleanup")
         self._janitor:Add(self.pathObject.Blocked:Connect(function(blockedWaypointIndex) self:PathBlocked(blockedWaypointIndex)
         end), nil, "BlockCleanup")
@@ -292,6 +293,18 @@ function BaseClass:HeartbeatUpdate()
         end
         self:Aggro()
     end
+end
+
+function BaseClass:Init()
+    local function setNetworkOwner(character)
+        for _, desc in pairs(character:GetDescendants())do
+            if desc:IsA("BasePart")then
+                desc:SetNetworkOwner(nil)
+            end
+        end
+    end
+
+    setNetworkOwner(self.monsterCharacter)
 end
 
 function BaseClass:OnDeath()
