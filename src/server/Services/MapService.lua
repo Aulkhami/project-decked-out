@@ -27,9 +27,6 @@ end
 
 function MapService:KnitStart()
     self:LoadMap("SoBL01")
-    wait(10)
-    workspace.Rakha2828.Parent = workspace.Dungeon.Raiders
-    print("Wake up samurai")
 end
 
 
