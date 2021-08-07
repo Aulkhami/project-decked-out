@@ -8,11 +8,14 @@ local AnimationService = Knit.GetService("AnimationService")
 
 local BaseClass = {}
 BaseClass.__index = BaseClass
+-- Component
+BaseClass.Tag = "Monster:BaseClass"
 
 
-function BaseClass.new(monster)
+function BaseClass.new(monster, monsterID) -- Constructor
     local self = setmetatable({
     -- Properties
+        id = monsterID;
         attributes = monster:GetAttributes();
         currentEvent = "Nothing";
         eventList = {"Aggro", "Wander", "Nothing"};
@@ -51,15 +54,13 @@ function BaseClass.new(monster)
     -- Events
     self.IdleEvent = Signal.new()
     self.MoveToFinished = Signal.new()
-    -- Maid
-    self._maid = require(Knit.Util.Maid).new()
-    self.MoveCleanup = nil
-    self.BlockedCleanup = nil
+    -- Janitor
+    self._janitor = require(Knit.Util.Janitor).new()
     -- Event Connections
-    self._maid:GiveTask(self.IdleEvent:Connect(function() self:Idle()
+    self._janitor:Add(self.IdleEvent:Connect(function() self:Idle()
     end)) -- Makes the Monster wander when Idle
-    self._maid:GiveTask(RunService.Heartbeat:Connect(function() self:LogicLoop() -- Runs the LogicLoop for each Heartbeat
-    end))
+    self.humanoid.Died:Connect(function()self:OnDeath()
+    end)
     -- Initiation
     self:Idle()
 
@@ -116,10 +117,10 @@ function BaseClass:MoveTo(reached) -- Move to current waypoint in the path
         end
         self.humanoid:MoveTo(waypoint.Position)
         -- Firing another :MoveTo()
-        local distance = math.abs((self.root.Position - waypoint.Position).Magnitude)
-        --print(distance / self.humanoid.WalkSpeed)
-        wait(distance / self.humanoid.WalkSpeed - 0.15)
-        self.MoveToFinished:Fire(true)
+        -- local distance = math.abs((self.root.Position - waypoint.Position).Magnitude)
+        -- print(distance / self.humanoid.WalkSpeed)
+        local finished = self.humanoid.MoveToFinished:Wait()
+        self.MoveToFinished:Fire(finished)
     else
         self:AbortMovement()
     end
@@ -134,28 +135,30 @@ end
 function BaseClass:StartMovement(target) -- Start Pathfinded Movement to specified Target
     -- Pathfinding
     self.path, self.pathObject = self:Pathfind(target)
+    self._janitor:Add(self.pathObject, nil, "Path")
     -- Starting Movement
     if self.path then
         -- Events
-        local MoveCleanup = self.MoveToFinished:Connect(function(reached) self:MoveTo(reached)
-        end)
-        local BlockCleanup = self.pathObject.Blocked:Connect(function(blockedWaypointIndex) self:PathBlocked(blockedWaypointIndex)
-        end)
-        self.MoveCleanup = self._maid:GiveTask(MoveCleanup)
-        self.BlockCleanup = self._maid:GiveTask(BlockCleanup)
+        self._janitor:Add(self.MoveToFinished:Connect(function(reached) self:MoveTo(reached)
+        end), nil, "MoveCleanup")
+        self._janitor:Add(self.pathObject.Blocked:Connect(function(blockedWaypointIndex) self:PathBlocked(blockedWaypointIndex)
+        end), nil, "BlockCleanup")
         -- MoveTo 1st Waypoint
         self:MoveTo(true)
     else
-       self:EventChange("Nothing")
+        self:EventChange("Nothing")
     end
 end
 
 function BaseClass:AbortMovement() -- Aborts Current Pathfinded Movement
+    -- Cleanups
+    self._janitor:Remove("Path")
+    self._janitor:Remove("MoveCleanup")
+    self._janitor:Remove("BlockCleanup")
+    -- Resetting Path-related Variables
     self.path = nil
     self.pathObject = nil
     self.currentWaypointIndex = 0
-    self._maid[self.MoveCleanup] = nil
-    self._maid[self.BlockCleanup] = nil
 
     self:EventChange("Nothing")
 end
@@ -170,7 +173,6 @@ end
 -- Monster Actions
 
 function BaseClass:Attack()
-    print("Attacking")
     self.humanoid:MoveTo(self.root.Position)
     -- Face the Monster towards the Target
     local rotation = CFrame.lookAt(self.root.Position, self.target.Position)
@@ -195,9 +197,7 @@ function BaseClass:Attack()
     -- Animation
     local attackAnimation = self.loadedAnimations["HeavyAttack"]
     attackAnimation:Play()
-    local finishedAttacking = Signal.new()
-    local finishedAttackingCleanup = self._maid:GiveTask(finishedAttacking)
-    local attackAnimationEvent = self._maid:GiveTask(attackAnimation:GetMarkerReachedSignal("Contact"):Connect(function(condition)
+    self._janitor:Add(attackAnimation:GetMarkerReachedSignal("Contact"):Connect(function(condition)
         if condition == "Start" then
             hitBox = MonsterService.GetHitBox(self.attributes.HitBox):Clone()
             hitBox.Parent = workspace
@@ -211,14 +211,12 @@ function BaseClass:Attack()
             end)
         elseif condition == "End" then
             hitBox:Destroy()
-            finishedAttacking:Fire()
         end
-    end))
+    end), nil, "AttackAnimationEvent")
 
-    finishedAttacking:Wait()
     attackAnimation.Stopped:Wait()
-    self._maid[finishedAttackingCleanup] = nil
-    self._maid[attackAnimationEvent] = nil
+    print("Finished Attacking")
+    self._janitor:Remove("AttackAnimationEvent")
 end
 
 function BaseClass:Wander()
@@ -246,7 +244,7 @@ function BaseClass:Aggro() -- Aggroes the Monster's Target. Aggro is the highest
             if not self.target or oldTarget.Name ~= self.targetCharacter.Name then break
             end
             self.humanoid:MoveTo(self.target.Position)
-            if self.targetDistance <= self.attributes.AttackRange then print("Attacking But Not Yet")
+            if self.targetDistance <= self.attributes.AttackRange then
                 self:Attack()
             end
         end
@@ -277,7 +275,16 @@ function BaseClass:TargetPriority()
     return newTarget, currentDistance, targetCharacter
 end
 
-function BaseClass:LogicLoop()
+function BaseClass:Idle()
+    print("Idling")
+    if self.attributes.IdleTime then wait(self.attributes.IdleTime)
+    else wait(1)
+    end
+    self:Wander()
+end
+
+-- Component Functions
+function BaseClass:HeartbeatUpdate()
     self.target, self.targetDistance, self.targetCharacter = self:TargetPriority()
     if self.targetDistance <= self.attributes.AggroRange and self.currentEvent ~= "Aggro" and self.aggroDebounce then
         if not self.currentEvent == "Nothing" then
@@ -287,16 +294,13 @@ function BaseClass:LogicLoop()
     end
 end
 
-function BaseClass:Idle()
-    print("Idling")
-    if self.attributes.IdleTime then wait(self.attributes.IdleTime)
-    else wait(1)
-    end
-    self:Wander()
+function BaseClass:OnDeath()
+    wait(3)
+    self.monsterCharacter:Destroy()
 end
 
 function BaseClass:Destroy()
-    self._maid:Destroy()
+    self._janitor:Destroy()
 end
 
 return BaseClass

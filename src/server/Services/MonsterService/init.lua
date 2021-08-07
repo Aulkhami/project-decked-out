@@ -1,5 +1,7 @@
 local Knit = require(game:GetService("ReplicatedStorage").Knit)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
+local Component = require(Knit.Util.Component)
 local Asset = ReplicatedStorage.Asset
 
 local MonsterService = Knit.CreateService {
@@ -13,15 +15,16 @@ local MonsterService = Knit.CreateService {
 function MonsterService:LoadMonster(monster)
     -- Loading the Script to the Specified Monster
     local monsterHierarchy = {
-        ["Base"] = require(script.BaseClass)
+        ["Base"] = "Monster:BaseClass";
     }
 
     local class = monsterHierarchy[monster:GetAttribute("Hierarchy")]
-    print(class)
-    local newClass = class.new(monster)
+    CollectionService:AddTag(monster, class)
     -- Monster ID
     local monsterID = self.LatestNumber + 1
-    self.LoadedMonsters[monsterID] = newClass
+    self.LoadedMonsters[monsterID] = monster
+    monster.Humanoid.Died:Connect(function() self:UnloadMonster(monsterID)
+    end)
     self.LatestNumber = monsterID
 end
 
@@ -30,6 +33,10 @@ function MonsterService:LoadMonsters(monsterFolder)
     for _,v in pairs(monsterFolder) do
         self:LoadMonster(v)
     end
+end
+
+function MonsterService:UnloadMonster(monsterID)
+    self.LoadedMonsters[monsterID] = nil
 end
 
 function MonsterService.GetHitBox(hitBox)
@@ -102,9 +109,9 @@ function MonsterService.GetClass(class)
 end
 
 function MonsterService:KnitStart()
-    wait(11)
+    Component.Auto(script)
+    workspace:WaitForChild("Dungeon")
     self:LoadMonster(workspace.Dummy)
-    print(self.LoadedMonsters[1], getmetatable(self.LoadedMonsters[1]))
 end
 
 
