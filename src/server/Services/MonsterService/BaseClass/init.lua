@@ -12,10 +12,9 @@ BaseClass.__index = BaseClass
 BaseClass.Tag = "Monster:BaseClass"
 
 
-function BaseClass.new(monster, monsterID) -- Constructor
+function BaseClass.new(monster) -- Constructor
     local self = setmetatable({
     -- Properties
-        id = monsterID;
         attributes = monster:GetAttributes();
         currentEvent = "Nothing";
         eventList = {"Aggro", "Wander", "Nothing"};

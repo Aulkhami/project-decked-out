@@ -16,10 +16,19 @@ function MonsterService:LoadMonster(monster)
     -- Loading the Script to the Specified Monster
     local monsterHierarchy = {
         ["Base"] = "Monster:BaseClass";
+        ["Hearing"] = --[[{"Monster:BaseClass",]] "Monster:HearingClass"--};
     }
 
     local class = monsterHierarchy[monster:GetAttribute("Hierarchy")]
+    --[[if type(class) == "table" then
+        for _,v in pairs(class) do
+            CollectionService:AddTag(monster, v)
+        end
+    else
+        CollectionService:AddTag(monster, class)
+    end]]
     CollectionService:AddTag(monster, class)
+
     -- Monster ID
     local monsterID = self.LatestNumber + 1
     self.LoadedMonsters[monsterID] = monster
