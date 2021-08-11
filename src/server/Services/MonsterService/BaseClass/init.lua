@@ -49,12 +49,11 @@ function BaseClass.new(monster) -- Constructor
         self.loadedAnimations = AnimationService:LoadAnimations(self.humanoid, MonsterService.FindAnimationsForClass(self.attributes.Class))
     end
 
-
-    -- Events
-    self.IdleEvent = Signal.new()
-    self.MoveToFinished = Signal.new()
     -- Janitor
     self._janitor = require(Knit.Util.Janitor).new()
+    -- Events
+    self.IdleEvent = Signal.new(self._janitor)
+    self.MoveToFinished = Signal.new(self._janitor)
     -- Event Connections
     self._janitor:Add(self.IdleEvent:Connect(function() self:Idle()
     end)) -- Makes the Monster wander when Idle
@@ -115,12 +114,6 @@ function BaseClass:MoveTo(reached) -- Move to current waypoint in the path
             self.humanoid.Jump = true
         end
         self.humanoid:MoveTo(waypoint.Position)
-        -- Firing another :MoveTo()
-        local distance = math.abs((self.root.Position - waypoint.Position).Magnitude)
-        print(distance)
-        --[[ print(distance / self.humanoid.WalkSpeed)
-        local finished = self.humanoid.MoveToFinished:Wait()
-        self.MoveToFinished:Fire(finished)]]
     else
         self:AbortMovement()
     end
@@ -215,13 +208,11 @@ function BaseClass:Attack()
     end), nil, "AttackAnimationEvent")
 
     attackAnimation.Stopped:Wait()
-    print("Finished Attacking")
     self._janitor:Remove("AttackAnimationEvent")
 end
 
 function BaseClass:Wander()
     if self:EventChange("Wander") then
-        print("Wandering")
         if self.attributes.WanderSpeed then -- Changes the Monster's Humanoid WalkSpeed to the Monster's WanderSpeed if Monster has WanderSpeed
             self:ChangeSpeed(self.attributes.WanderSpeed)
         end
@@ -276,7 +267,6 @@ function BaseClass:TargetPriority()
 end
 
 function BaseClass:Idle()
-    print("Idling")
     if self.attributes.IdleTime then wait(self.attributes.IdleTime)
     else wait(1)
     end

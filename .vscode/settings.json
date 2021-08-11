@@ -1,5 +1,6 @@
 {
     "Lua.diagnostics.disable": [
-        "incorrect-call-arguments"
+        "incorrect-call-arguments",
+        "unused-local"
     ]
 }
