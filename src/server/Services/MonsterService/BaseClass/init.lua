@@ -3,6 +3,7 @@ local Signal = require(Knit.Util.Signal)
 local PathfindingService = game:GetService("PathfindingService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local Switch = require(Knit.Modules.Switch)
 local MonsterService = Knit.GetService("MonsterService")
 local AnimationService = Knit.GetService("AnimationService")
 
@@ -40,9 +41,11 @@ function BaseClass.new(monster) -- Constructor
             monster:SetAttribute(i,v)
         end
         self.attributes = monster:GetAttributes()
+        self.humanoid.WalkSpeed = self.attributes.BaseSpeed
     end
 
     -- Loading Animations
+    AnimationService.LoadBaseAnimations(self.monsterCharacter)
     if self.attributes.animationClass then
         self.loadedAnimations = AnimationService:LoadAnimations(self.humanoid, MonsterService.FindAnimationsForClass(self.attributes.animationClass))
     else
@@ -53,31 +56,61 @@ function BaseClass.new(monster) -- Constructor
     self._janitor = require(Knit.Util.Janitor).new()
     -- Events
     self.IdleEvent = Signal.new(self._janitor)
-    self.MoveToFinished = Signal.new(self._janitor)
     -- Event Connections
     self._janitor:Add(self.IdleEvent:Connect(function() self:Idle()
     end)) -- Makes the Monster wander when Idle
-    self.humanoid.Died:Connect(function()self:OnDeath()
-    end)
-    -- Initiation
-    self:Idle()
+    self.humanoid.Died:Connect(function() self:OnDeath()
+    end) -- Connects Humanoid's death with the OnDeath function
 
     return self
 end
 
-function BaseClass:EventChange(newEvent) -- A function to prioritize certain Events over the other, and changing the current Event to the higher priority Event.
+function BaseClass:EventChange(newEvent, chaseType, chaseValue) -- A function to prioritize certain Events over the other, and changing the current Event to the higher priority Event.
     local currentPriority = table.find(self.eventList, self.currentEvent)
     local newPriority = table.find(self.eventList, newEvent)
 
-    if newPriority < currentPriority then
+    local eventConditional = Switch()
+    :case("Chase", function()
+        print("Thinking of changing event to Chase")
+        local currentChasePriority = table.find(self.chaseList, self.currentChase)
+        local newChasePriority = table.find(self.chaseList, chaseType)
+
+        if newPriority <= currentPriority and chaseValue > 0 then
+            if newChasePriority == currentChasePriority and chaseValue > self.chaseValue then
+                print("Same type of Chase")
+                print("New ChaseValue is higher than Old ChaseValue")
+                self:AbortMovement()
+                self.currentEvent = newEvent
+                return true
+            elseif newChasePriority < currentChasePriority then
+                self:AbortMovement()
+                self.currentEvent = newEvent
+                self.currentChase = chaseType
+                return true
+            else
+                return false
+            end
+        else
+            return false
+        end
+    end)
+    :case("Nothing", function()
         self.currentEvent = newEvent
-        return true
-    elseif newEvent == "Nothing" then
-        self.currentEvent = newEvent
+        if self.currentChase then self.currentChase = "Nothing"
+        end
         self.IdleEvent:Fire()
-    else
-        return false
-    end
+    end)
+    :default(function()
+        if newPriority < currentPriority then
+            self:AbortMovement()
+            self.currentEvent = newEvent
+            return true
+        else
+            return false
+        end
+    end)
+
+    return eventConditional(newEvent)
 end
 
 -- Pathfinding and Movement
@@ -144,22 +177,25 @@ function BaseClass:StartMovement(target) -- Start Pathfinded Movement to specifi
 end
 
 function BaseClass:AbortMovement() -- Aborts Current Pathfinded Movement
-    -- Cleanups
-    self._janitor:Remove("Path")
-    self._janitor:Remove("MoveCleanup")
-    self._janitor:Remove("BlockCleanup")
-    -- Resetting Path-related Variables
-    self.path = nil
-    self.pathObject = nil
-    self.currentWaypointIndex = 0
+    if self.currentEvent ~= "Nothing" then
+        -- Cleanups
+        self._janitor:Remove("Path")
+        self._janitor:Remove("MoveCleanup")
+        self._janitor:Remove("BlockCleanup")
+        -- Resetting Path-related Variables
+        self.path = nil
+        self.pathObject = nil
+        self.currentWaypointIndex = 0
 
-    self:EventChange("Nothing")
+        self:EventChange("Nothing")
+    end
 end
 
 function BaseClass:ChangeSpeed(speedMod) -- Changes the Monster's Humanoid Walkspeed if the Monster has Speed Modifiers
     local speedModAttr = self.attributes[speedMod]
     if speedModAttr then
         self.humanoid.WalkSpeed = (self.attributes.BaseSpeed * speedModAttr)
+        print(self.humanoid.WalkSpeed)
     end
 end
 
@@ -213,9 +249,7 @@ end
 
 function BaseClass:Wander()
     if self:EventChange("Wander") then
-        if self.attributes.WanderSpeed then -- Changes the Monster's Humanoid WalkSpeed to the Monster's WanderSpeed if Monster has WanderSpeed
-            self:ChangeSpeed(self.attributes.WanderSpeed)
-        end
+        self:ChangeSpeed("WanderSpeed")
         -- Randomizing Coordinate
         local xRand = math.random(-50,50)
         local zRand = math.random(-50,50)
@@ -284,20 +318,26 @@ function BaseClass:HeartbeatUpdate()
     end
 end
 
-function BaseClass:Init()
-    local function setNetworkOwner(character)
-        for _, desc in pairs(character:GetDescendants())do
-            if desc:IsA("BasePart")then
-                desc:SetNetworkOwner(nil)
-            end
+function BaseClass:SetNetworkOwner()
+    for _, desc in pairs(self.monsterCharacter:GetDescendants()) do
+        if desc:IsA("BasePart")then
+            desc:SetNetworkOwner(nil)
         end
     end
+end
 
-    setNetworkOwner(self.monsterCharacter)
+function BaseClass:BaseInit()
+    self:SetNetworkOwner()
+    self.humanoid.Jump = true
+    self:Idle()
+end
+
+function BaseClass:Init()
+    self:BaseInit()
 end
 
 function BaseClass:OnDeath()
-    wait(3)
+    wait(5)
     self.monsterCharacter:Destroy()
 end
 

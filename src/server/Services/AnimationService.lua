@@ -87,6 +87,11 @@ function AnimationService.GetAnimation(animation) -- Dictionary Function for poi
     end
 end
 
+function AnimationService.LoadBaseAnimations(character)
+    local animationScript = ReplicatedStorage.Animate:Clone()
+    animationScript.Parent = character
+end
+
 function AnimationService:KnitStart()
 
 end

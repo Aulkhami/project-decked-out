@@ -27,6 +27,7 @@ function MonsterService:LoadMonster(monster)
     else
         CollectionService:AddTag(monster, class)
     end]]
+    CollectionService:AddTag(monster, "Monster")
     CollectionService:AddTag(monster, class)
 
     -- Monster ID
@@ -67,7 +68,7 @@ end
 
 function MonsterService.FindAnimationsForClass(classAnimation)
     local animations = {
-        ["Default"] = {};
+        ["Default"] = {"DefaultHeavyAttack"};
         ["Base"] = {"DefaultHeavyAttack"};
     }
 
@@ -102,11 +103,12 @@ function MonsterService.GetClass(class)
             BaseSpeed = 16;
             WanderSpeed = 0.5;
             ChaseSpeed = 0.95;
-            AggroSpeed = 1.5;
+            AggroSpeed = 1.25;
             IdleTime = 2;
-            AggroRange = 5;
-            MinHear = 30;
+            AggroRange = 10;
             AttackRange = 2;
+            HearingMultiplier = 2;
+            HitBox = "Default";
         };
     }
 
@@ -118,9 +120,7 @@ function MonsterService.GetClass(class)
 end
 
 function MonsterService:KnitStart()
-    Component.Auto(script)
-    workspace:WaitForChild("Dungeon")
-    self:LoadMonster(workspace.Dummy)
+    Component.Auto(script) -- Loads all the classes
 end
 
 

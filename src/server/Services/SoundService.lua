@@ -13,9 +13,9 @@ local SoundService = Knit.CreateService {
         SoundPlayed = RemoteSignal.new()
     };
     SoundLoudness = {
-        ["Running"] = 150;
-        ["Jumping"] = 200;
-        ["Landing"] = 250;
+        ["Running"] = 75;
+        ["Jumping"] = 100;
+        ["Landing"] = 125;
     };
     Heard = Signal.new();
 }
