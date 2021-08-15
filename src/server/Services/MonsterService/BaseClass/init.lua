@@ -161,9 +161,9 @@ end
 function BaseClass:StartMovement(target) -- Start Pathfinded Movement to specified Target
     -- Pathfinding
     self.path, self.pathObject = self:Pathfind(target)
-    self._janitor:Add(self.pathObject, nil, "Path")
     -- Starting Movement
     if self.path then
+        self._janitor:Add(self.pathObject, nil, "Path")
         -- Events
         self._janitor:Add(self.humanoid.MoveToFinished:Connect(function(reached) self:MoveTo(reached)
         end), nil, "MoveCleanup")

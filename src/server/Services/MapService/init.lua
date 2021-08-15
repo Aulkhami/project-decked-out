@@ -1,5 +1,7 @@
 local Knit = require(game:GetService("ReplicatedStorage").Knit)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
+local Component = require(Knit.Util.Component)
 local MonsterService
 local DungeonReplicated = ReplicatedStorage.Dungeon
 
@@ -23,24 +25,30 @@ function MapService:LoadMap(map)
     self.LoadedMap = map
 
     -- Loading the Players PLACEHOLDER
-    local tester = workspace:WaitForChild("Rakha2828")
-    tester.Parent = newMap.Raiders
+    local tester1, tester2 = workspace:WaitForChild("Rakha2828"), workspace:WaitForChild("Erabungo")
+    tester1.Parent = newMap.Raiders
+    tester2.Parent = newMap.Raiders
 
     -- Loading the Monsters PLACEHOLDER
     MonsterService:LoadMonsters(newMap.Monsters:GetChildren())
+
+    -- Loading the Treasure PLACEHOLDER
+    CollectionService:AddTag(newMap.Map:FindFirstChild("Treasure", true), "Treasure")
 end
 
 
 function MapService:KnitStart()
     -- Getting other Services
     MonsterService = Knit.GetService("MonsterService")
+    -- Loading Components
+    Component.Auto(script)
 
     self:LoadMap("SoBL01")
 end
 
 
 function MapService:KnitInit()
-    
+
 end
 
 
