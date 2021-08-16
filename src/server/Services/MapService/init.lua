@@ -24,10 +24,10 @@ function MapService:LoadMap(map)
     newMap.Name = "Dungeon"
     self.LoadedMap = map
 
-    -- Loading the Players PLACEHOLDER
-    local tester1, tester2 = workspace:WaitForChild("Rakha2828"), workspace:WaitForChild("Erabungo")
+    -- Loading the Players PLACEHOLDER EVERYTHING IS FUCKING PLACEHOLDER REEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
+    local tester1--[[, tester2]] = workspace:WaitForChild("Rakha2828")--, workspace:WaitForChild("Erabungo")
     tester1.Parent = newMap.Raiders
-    tester2.Parent = newMap.Raiders
+    --tester2.Parent = newMap.Raiders
 
     -- Loading the Monsters PLACEHOLDER
     MonsterService:LoadMonsters(newMap.Monsters:GetChildren())

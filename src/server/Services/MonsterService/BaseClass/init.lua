@@ -71,19 +71,16 @@ function BaseClass:EventChange(newEvent, chaseType, chaseValue) -- A function to
 
     local eventConditional = Switch()
     :case("Chase", function()
-        print("Thinking of changing event to Chase")
         local currentChasePriority = table.find(self.chaseList, self.currentChase)
         local newChasePriority = table.find(self.chaseList, chaseType)
 
         if newPriority <= currentPriority and chaseValue > 0 then
             if newChasePriority == currentChasePriority and chaseValue > self.chaseValue then
-                print("Same type of Chase")
-                print("New ChaseValue is higher than Old ChaseValue")
-                self:AbortMovement()
+                self:AbortMovement(true)
                 self.currentEvent = newEvent
                 return true
             elseif newChasePriority < currentChasePriority then
-                self:AbortMovement()
+                self:AbortMovement(true)
                 self.currentEvent = newEvent
                 self.currentChase = chaseType
                 return true
@@ -96,13 +93,17 @@ function BaseClass:EventChange(newEvent, chaseType, chaseValue) -- A function to
     end)
     :case("Nothing", function()
         self.currentEvent = newEvent
+
         if self.currentChase then self.currentChase = "Nothing"
         end
+        if not self.aggroDebounce then self.aggroDebounce = true
+        end
+
         self.IdleEvent:Fire()
     end)
     :default(function()
         if newPriority < currentPriority then
-            self:AbortMovement()
+            self:AbortMovement(true)
             self.currentEvent = newEvent
             return true
         else
@@ -140,7 +141,7 @@ end
 
 function BaseClass:MoveTo(reached) -- Move to current waypoint in the path
     self.currentWaypointIndex += 1
-    if reached and self.currentWaypointIndex < #self.path then
+    if reached and self.currentWaypointIndex <= #self.path then
         -- Moving to Waypoint
         local waypoint = self.path[self.currentWaypointIndex]
         if waypoint.Action == Enum.PathWaypointAction.Jump then
@@ -171,12 +172,14 @@ function BaseClass:StartMovement(target) -- Start Pathfinded Movement to specifi
         end), nil, "BlockCleanup")
         -- MoveTo 1st Waypoint
         self:MoveTo(true)
+
+        return true
     else
-        self:EventChange("Nothing")
+        return false
     end
 end
 
-function BaseClass:AbortMovement() -- Aborts Current Pathfinded Movement
+function BaseClass:AbortMovement(isFromEventChange) -- Aborts Current Pathfinded Movement
     if self.currentEvent ~= "Nothing" then
         -- Cleanups
         self._janitor:Remove("Path")
@@ -187,7 +190,9 @@ function BaseClass:AbortMovement() -- Aborts Current Pathfinded Movement
         self.pathObject = nil
         self.currentWaypointIndex = 0
 
-        self:EventChange("Nothing")
+        if not isFromEventChange then
+            self:EventChange("Nothing")
+        end
     end
 end
 
@@ -195,7 +200,6 @@ function BaseClass:ChangeSpeed(speedMod) -- Changes the Monster's Humanoid Walks
     local speedModAttr = self.attributes[speedMod]
     if speedModAttr then
         self.humanoid.WalkSpeed = (self.attributes.BaseSpeed * speedModAttr)
-        print(self.humanoid.WalkSpeed)
     end
 end
 
@@ -255,27 +259,54 @@ function BaseClass:Wander()
         local zRand = math.random(-50,50)
         local target = self.root.Position + Vector3.new(xRand,0,zRand)
 
-        self:StartMovement(target)
+        local pathfinded = self:StartMovement(target)
+        if not pathfinded then
+            self.currentEvent = "Nothing"
+            self:Wander()
+        end
     end
 end
 
 function BaseClass:Aggro() -- Aggroes the Monster's Target. Aggro is the highest priority Event, which is why it uses a while loop instead of an event loop.
-    if self:EventChange("Aggro") then
-        self.aggroDebounce = false
-        local oldTarget = self.targetCharacter
-        self:ChangeSpeed("AggroSpeed")
-        while self.targetDistance <= self.attributes.AggroRange do
-            RunService.Heartbeat:Wait()
-            if not self.target or oldTarget.Name ~= self.targetCharacter.Name then break
+    local sightOfTarget = self:CheckSight(self.target, self.root)
+    if sightOfTarget.Instance.Parent == self.targetCharacter then
+        print("This should not happen")
+        if self:EventChange("Aggro") then
+            self.aggroDebounce = false
+
+            local oldTarget = self.targetCharacter
+            self:ChangeSpeed("AggroSpeed")
+            while self.targetDistance <= self.attributes.AggroRange do
+                RunService.Heartbeat:Wait()
+                if not self.target or oldTarget.Name ~= self.targetCharacter.Name then break
+                end
+                self.humanoid:MoveTo(self.target.Position)
+                if self.targetDistance <= self.attributes.AttackRange then
+                    self:Attack()
+                end
             end
-            self.humanoid:MoveTo(self.target.Position)
-            if self.targetDistance <= self.attributes.AttackRange then
-                self:Attack()
-            end
+            self:EventChange("Nothing")
         end
-        self:EventChange("Nothing")
-        self.aggroDebounce = true
     end
+end
+
+-- Sensess
+
+function BaseClass:CheckSight(target, origin, params)
+    local raycastParams
+    if params then
+        raycastParams = params
+    else
+        raycastParams = RaycastParams.new()
+        raycastParams.FilterDescendantsInstances = {self.monsterCharacter}
+        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    end
+
+    local rayOrigin = origin.Position
+    local rayDirection = (target.Position - rayOrigin)
+
+    local result = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+    return result
 end
 
 -- Monster Logic Loop
@@ -308,6 +339,7 @@ function BaseClass:Idle()
 end
 
 -- Component Functions
+
 function BaseClass:HeartbeatUpdate()
     self.target, self.targetDistance, self.targetCharacter = self:TargetPriority()
     if self.targetDistance <= self.attributes.AggroRange and self.currentEvent ~= "Aggro" and self.aggroDebounce then

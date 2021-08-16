@@ -2,5 +2,8 @@
     "Lua.diagnostics.disable": [
         "incorrect-call-arguments",
         "unused-local"
+    ],
+    "Lua.diagnostics.globals": [
+        "workspace"
     ]
 }

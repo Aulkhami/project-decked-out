@@ -21,12 +21,19 @@ function HearingClass.new(monster)
 end
 
 
+-- Actions
+
 function HearingClass:Chase(target)
     local goal = target.Position
-    print(goal)
     self:ChangeSpeed("ChaseSpeed")
-    self:StartMovement(goal)
+    local pathfinded = self:StartMovement(goal)
+
+    if not pathfinded then
+        self:EventChange("Nothing")
+    end
 end
+
+-- Senses
 
 function HearingClass:Heard(loudness, source)
     local distance = math.abs((self.root.Position - source.Position).Magnitude)
@@ -35,14 +42,15 @@ function HearingClass:Heard(loudness, source)
     end
 
     local finalLoudness = (loudness * hearingMultiplier) - distance
-    local eventChange = self:EventChange("Chase", "Heard", finalLoudness)
-    if eventChange then
+    if self:EventChange("Chase", "Heard", finalLoudness) then
         self.chaseValue = finalLoudness
 
         self.heardTarget = source
         self:Chase(self.heardTarget)
     end
 end
+
+-- Component Functions
 
 function HearingClass:Init()
     self:BaseInit()

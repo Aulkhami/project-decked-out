@@ -105,7 +105,7 @@ function MonsterService.GetClass(class)
             ChaseSpeed = 0.95;
             AggroSpeed = 1.25;
             IdleTime = 2;
-            AggroRange = 10;
+            AggroRange = 20;
             AttackRange = 2;
             HearingMultiplier = 2;
             HitBox = "Default";
