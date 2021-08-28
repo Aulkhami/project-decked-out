@@ -41,7 +41,7 @@ function MapService:KnitStart()
     -- Getting other Services
     MonsterService = Knit.GetService("MonsterService")
     -- Loading Components
-    Component.Auto(script)
+    Component.Auto(script.Components)
 
     self:LoadMap("SoBL01")
 end

@@ -1,8 +1,7 @@
 local Knit = require(game:GetService("ReplicatedStorage").Knit)
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
 local Component = require(Knit.Util.Component)
-local Asset = ReplicatedStorage.Asset
+local TableUtil = require(Knit.Util.TableUtil)
 
 local MonsterService = Knit.CreateService {
     Name = "MonsterService";
@@ -16,19 +15,18 @@ function MonsterService:LoadMonster(monster)
     -- Loading the Script to the Specified Monster
     local monsterHierarchy = {
         ["Base"] = "Monster:BaseClass";
-        ["Hearing"] = --[[{"Monster:BaseClass",]] "Monster:HearingClass"--};
+        ["Hearing"] = {"MonsterBase", "MonsterMovement", "MonsterCombat", "MonsterBasicAttack", "HearingClass"};
     }
 
     local class = monsterHierarchy[monster:GetAttribute("Hierarchy")]
-    --[[if type(class) == "table" then
+    if type(class) == "table" then
         for _,v in pairs(class) do
             CollectionService:AddTag(monster, v)
         end
     else
         CollectionService:AddTag(monster, class)
-    end]]
+    end
     CollectionService:AddTag(monster, "Monster")
-    CollectionService:AddTag(monster, class)
 
     -- Monster ID
     local monsterID = self.LatestNumber + 1
@@ -49,20 +47,26 @@ function MonsterService:UnloadMonster(monsterID)
     self.LoadedMonsters[monsterID] = nil
 end
 
-function MonsterService.GetHitBox(hitBox)
-    local hitBoxes = {
-        ["Default"] = Asset.HitBox.Default;
+function MonsterService.GetHitbox(hitboxType)
+    local hitboxes = {
+        ["ArmHitbox"] = {
+            [1] = {
+                ["Parts"] = {"RightHand", "LeftHand"};
+                ["Vector"] = {Vector3.new(0, 0, 0)};
+                ["GroupName"] = "Normal"
+            };
+            [2] = {
+                ["Parts"] = {"RightLowerArm", "LeftLowerArm"};
+                ["Vector"] = {Vector3.new(0, 0, 0)};
+                ["GroupName"] = "Light"
+            }
+        };
     }
 
-    if type(hitBox) == "table" then
-        local hitBoxTable
-        for _, v in pairs(hitBox) do
-            table.insert(hitBoxTable, hitBoxes[v])
-        end
-
-        return hitBoxTable
+    if hitboxes[hitboxType] then
+        return hitboxes[hitboxType]
     else
-        return hitBoxes[hitBox]
+        return hitboxes["ArmHitbox"]
     end
 end
 
@@ -84,17 +88,57 @@ function MonsterService.FindAnimationsForClass(classAnimation)
     end
 end
 
-function MonsterService.GetClass(class)
+function MonsterService.GetClass(class, hierarchy)
+    print(class, hierarchy)
+    local template = {
+        ["Base"] = {
+            -- Body Data
+            Radius = 2;
+            Height = 5;
+            CanJump = true;
+            -- Stats
+            HP = 100;
+            Damage = 100;
+            BaseSpeed = 16;
+            WanderSpeed = 1;
+            ChaseSpeed = 1;
+            AggroSpeed = 1;
+            IdleTime = 1;
+            AggroRange = 50;
+            AttackRange = 5;
+            -- Data
+            UnarmedWeapon = "Arm";
+            UnarmedHitbox = "ArmHitbox"
+        };
+        ["Hearing"] = {
+            -- Body Data
+            Radius = 2;
+            Height = 5;
+            CanJump = true;
+            -- Stats
+            HP = 100;
+            Damage = 100;
+            BaseSpeed = 16;
+            WanderSpeed = 1;
+            ChaseSpeed = 1;
+            AggroSpeed = 1;
+            IdleTime = 1;
+            AggroRange = 20;
+            AttackRange = 5;
+            HearingMultiplier = 1;
+            -- Data
+            UnarmedWeapon = "Arm";
+            UnarmedHitbox = "ArmHitbox"
+        }
+    }
     local classes = {
         -- Base Class
         ["Base"] = {
             HP = 100;
             Damage = 100;
             BaseSpeed = 16;
-            AggroRange = 50;
             IdleTime = 1;
-            AttackRange = 2;
-            HitBox = "Default";
+            AggroRange = 50;
         };
         -- Hearing Class
         ["Mummy"] = {
@@ -105,15 +149,13 @@ function MonsterService.GetClass(class)
             ChaseSpeed = 0.95;
             AggroSpeed = 1.25;
             IdleTime = 2;
-            AggroRange = 20;
-            AttackRange = 2;
+            AggroRange = 10;
             HearingMultiplier = 2;
-            HitBox = "Default";
         };
     }
 
     if classes[class] then
-        return classes[class]
+        return TableUtil.Sync(classes[class], template[hierarchy])
     else
         warn(class, "is not a valid Class")
     end
